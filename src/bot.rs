@@ -131,7 +131,7 @@ impl SchirlitzBot {
         InlineQueryResult::InlineQueryResultArticle(
             InlineQueryResultArticle {
                 id,
-                title: joke.clone(),
+                title,
                 input_message_content: InputMessageContent::InputTextMessageContent(
                     InputTextMessageContent {
                         message_text: joke,
@@ -156,7 +156,7 @@ impl SchirlitzBot {
         if query.query.is_empty() {
             answers = vec![Self::make_joke_answer(
                 "rand".to_string(),
-                "Случайно".to_string(),
+                "Случайная шутеечка".to_string(),
                 jokes.get(rand::thread_rng().gen_range(0..jokes.len())).unwrap().text.clone()
             )]
         } else {
