@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use futures::StreamExt;
 use rand::Rng;
 use telegram_bot::{Api, CanAnswerInlineQuery, InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContent, InputTextMessageContent, Message, MessageChat, MessageText, SendMessage, UpdateKind, User};
-use time::{Instant, OffsetDateTime, UtcOffset};
+use time::{Duration, Instant, OffsetDateTime, UtcOffset};
 use crate::{Chat, UserId};
 
 use crate::database::DatabaseAccessor;
@@ -14,7 +14,7 @@ pub struct SchirlitzBot {
     api: Api,
     database: DatabaseAccessor,
     waiting_from: HashMap<String, fn(&mut SchirlitzBot, Message)>,
-    started: u64
+    started: u64,
 }
 
 impl SchirlitzBot {
@@ -67,10 +67,21 @@ impl SchirlitzBot {
         }
         if text.starts_with("/restart") {
             if msg.from.id != UserId::new(429171352) {
-                self.api.spawn(SendMessage::new(msg.chat, "Иди нахуй бесправный мудила"));
+                self.api.spawn(SendMessage::new(msg.chat.clone(), "Иди нахуй бесправный мудила"));
                 return;
             }
-            self.update(msg.chat);
+            self.update(msg.chat.clone());
+        }
+        if text.starts_with("/status") {
+            let content = format!(
+                "Шутеек загружено: {}\n\
+                 Аптайм: {:?}\
+            ",
+                self.database.query_jokes("").len(),
+                SystemTime::now().duration_since(UNIX_EPOCH).unwrap() - core::time::Duration::new(self.started, 0)
+            );
+
+            self.api.spawn(SendMessage::new(msg.chat.clone(), content));
         }
     }
 
@@ -116,7 +127,7 @@ impl SchirlitzBot {
                 self.api.spawn(SendMessage::new(chat, format!("Произошла ошибка: {}", err)));
                 false
             }
-        }
+        };
     }
 
     fn joke_sent(&mut self, msg: Message) {
@@ -157,7 +168,7 @@ impl SchirlitzBot {
             answers = vec![Self::make_joke_answer(
                 "rand".to_string(),
                 "Случайная шутеечка".to_string(),
-                jokes.get(rand::thread_rng().gen_range(0..jokes.len())).unwrap().text.clone()
+                jokes.get(rand::thread_rng().gen_range(0..jokes.len())).unwrap().text.clone(),
             )]
         } else {
             answers = jokes.iter().enumerate().map(|(i, joke)| {
