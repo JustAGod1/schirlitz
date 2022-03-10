@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use futures::StreamExt;
 use rand::Rng;
 use telegram_bot::{Api, CanAnswerInlineQuery, InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContent, InputTextMessageContent, Message, MessageChat, MessageText, SendMessage, UpdateKind, User};
+use time::{Instant, OffsetDateTime, UtcOffset};
 use crate::{Chat, UserId};
 
 use crate::database::DatabaseAccessor;
@@ -12,11 +14,12 @@ pub struct SchirlitzBot {
     api: Api,
     database: DatabaseAccessor,
     waiting_from: HashMap<String, fn(&mut SchirlitzBot, Message)>,
+    started: u64
 }
 
 impl SchirlitzBot {
     pub fn new(api: Api, database: DatabaseAccessor) -> Self {
-        SchirlitzBot { api, database, waiting_from: HashMap::new() }
+        SchirlitzBot { api, database, waiting_from: HashMap::new(), started: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() }
     }
 
     pub async fn run(&mut self) {
@@ -38,6 +41,9 @@ impl SchirlitzBot {
     }
 
     fn process_message(&mut self, msg: Message) {
+        if (msg.date as u64) < self.started {
+            return;
+        }
         if msg.text().is_none() { return; }
         let text = msg.text().unwrap();
 
@@ -78,7 +84,7 @@ impl SchirlitzBot {
 
         self.api.spawn(SendMessage::new(chat.clone(), "Пытаюсь перекомпилироваться"));
         let mut command = Command::new("./recompile.sh");
-        self.run_command(&mut command, &chat);
+        if !self.run_command(&mut command, &chat) { return; }
 
         self.api.spawn(SendMessage::new(chat.clone(), "Перезапускаюсь"));
         let mut command = Command::new("sudo");
