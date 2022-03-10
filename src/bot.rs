@@ -60,8 +60,8 @@ impl SchirlitzBot {
             self.api.spawn(req);
         }
         if text.starts_with("/restart") {
-            if msg.from.id != UserId(429171352) {
-                self.api.spawn(SendMessage::new(chat, "Иди нахуй бесправный мудила"));
+            if msg.from.id != UserId::new(429171352) {
+                self.api.spawn(SendMessage::new(msg.chat, "Иди нахуй бесправный мудила"));
                 return;
             }
             self.update(msg.chat);
@@ -71,24 +71,28 @@ impl SchirlitzBot {
     fn update(&mut self, chat: MessageChat) {
         self.api.spawn(SendMessage::new(chat.clone(), "Пулю"));
 
-        let mut command = Command::new("git")
-            .arg("pull");
+        let mut command = Command::new("git");
+        command.arg("pull");
 
-        if !self.run_command(command, &chat) { return; }
+        if !self.run_command(&mut command, &chat) { return; }
+
+        self.api.spawn(SendMessage::new(chat.clone(), "Пытаюсь перекомпилироваться"));
+        let mut command = Command::new("./recompile.sh");
+        self.run_command(&mut command, &chat);
+
         self.api.spawn(SendMessage::new(chat.clone(), "Перезапускаюсь"));
-
-        let mut command = Command::new("sudo")
-            .arg("systemctl")
+        let mut command = Command::new("sudo");
+        command.arg("systemctl")
             .arg("restart")
             .arg("bot");
 
-        self.run_command(command, &chat);
+        self.run_command(&mut command, &chat);
     }
 
     fn run_command(&mut self, cmd: &mut Command, chat: &MessageChat) -> bool {
         return match cmd.output() {
             Ok(output) => {
-                if output.status != 0 {
+                if !output.status.success() {
                     self.api.spawn(SendMessage::new(
                         chat,
                         format!(
@@ -151,7 +155,7 @@ impl SchirlitzBot {
             )]
         } else {
             answers = jokes.iter().enumerate().map(|(i, joke)| {
-                Self::make_joke_answer(i.to_string(), joke.text.clone(), joke.text.clone());
+                Self::make_joke_answer(i.to_string(), joke.text.clone(), joke.text.clone())
             }).collect();
         }
 
